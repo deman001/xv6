@@ -8,6 +8,7 @@ int main(int argc, char *argv[])
 	
 	int exitWait(void);
 	int waitPid(void);
+  int PScheduler(void);
 
   printf(1, "\n This program tests the correctness of your lab#1\n");
   
@@ -15,13 +16,88 @@ int main(int argc, char *argv[])
 	exitWait();
   else if (atoi(argv[1]) == 2)
 	waitPid();
+  else if (atoi(argv[1]) == 3)
+  PScheduler();
   else 
    printf(1, "\ntype \"%s 1\" to test exit and wait, \"%s 2\" to test waitpid\n", argv[0], argv[0]);
   
     // End of test
-	 exit(0);
-	 return 0;
- }
+  exit(0);
+  return 0;
+}
+
+/*int PScheduler(void){
+  // use this part to test the priority scheduler. Assuming that the priorities range between range between 0 to 31
+  // 0 is the highest priority and 31 is the lowest priority.
+  int pid;
+  int i,j,k;
+  int priorityArr[] = {30, 15, 25, 0, 9};
+
+  printf(1, "\n  Testing the priority scheduler and setPriority(int priority) system call:\n");
+  printf(1, "\n  Assuming that the priorities range between range between 0 to 31\n");
+  printf(1, "\n  0 is the highest priority. All processes have a default priority of 10\n");
+  printf(1, "\n  The parent processes will switch to priority 0\n");
+  setPrior(0);
+
+  for(i = 0; i < 5; i++) {
+      pid = fork();
+      if (pid > 0 ) {
+          continue;
+      } else if ( pid == 0) {
+          setPrior(priorityArr[i]);
+          printf(1, "\n child# %d has priority %d before starting its work", getpid(), getPrior());
+          for (j=0;j<50000;j++) {
+              for(k=0;k<1000;k++) {
+                  asm("nop");
+              }
+          }
+          printf(1, "\n child# %d has priority %d after finishing its work", getpid(), getPrior());
+          printf(1, "\n child# %d with original priority %d has finished! \n", getpid(), priorityArr[i]);
+          exit(0);
+      } else {
+          printf(2," \n Error \n");
+      }
+  }
+
+  if(pid > 0) {
+      for(i = 0; i < 5; i++) {
+          wait(0);
+      }
+      printf(1,"\n if processes with highest priority finished first then its correct \n");
+  }
+  exit(0);
+}*/
+
+void work() {
+  int i,k;
+  for(i = 0; i < 43000; i++) {
+    for(k = 0; k < 43000; k++) {
+      asm("nop");
+    }
+  }
+}
+
+int PScheduler(void) {
+
+  setPrior(0);
+  int i = 0;
+  int pid = 0;
+  for(i = 0; i < 3; i++) {
+    pid = fork();
+    if(!pid) {
+      setPrior(i * 10);
+      work();
+      printf(0, "child %d done\n", getpid());
+      exit(0);
+    }
+  }
+  if(pid) {
+    for(i = 0; i < 3; i++)
+      wait(0);
+  }
+  printf(0, "parent %d done\n", getpid());
+  exit(0);
+}
   
 int exitWait(void) {
 	  int pid, ret_pid, exit_status;

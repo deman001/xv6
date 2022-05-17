@@ -215,6 +215,10 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  np->starttime = ticks;
+  np->runtime = 0;
+  curproc->runtime = time - np->starttime;
+  time = np->starttime;
 
   release(&ptable.lock);
 
@@ -260,6 +264,15 @@ exit(int stat)
         wakeup1(initproc);
     }
   }
+
+  curproc->endtime = ticks;
+  curproc->turnaround = curproc->endtime - curproc->starttime;
+  curproc->runtime += curproc->endtime - time;
+
+  cprintf("PID:%d - Start time: %d \n", curproc->pid, curproc->starttime);
+  cprintf("PID:%d - End time: %d \n", curproc->pid, curproc->endtime);
+  cprintf("PID:%d - Turnaround time: %d \n", curproc->pid, curproc->turnaround);
+  cprintf("PID:%d - Burst time: %d \n", curproc->pid, curproc->turnaround - curproc->runtime);
 
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
@@ -382,12 +395,26 @@ scheduler(void)
   for(;;){
     // Enable interrupts on this processor.
     sti();
+    int lowP = 50;
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state == RUNNABLE && p->priority < lowP)
+        lowP = p->priority;
+    }
+
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
+      
+      if(p->priority != lowP){
+        if (p->priority > 0){
+          p->priority--;
+        }
+        continue;
+      }
+    
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -397,11 +424,10 @@ scheduler(void)
       p->state = RUNNING;
 
       swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+      switchkvm(); 
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    c->proc = 0;
     }
     release(&ptable.lock);
 
@@ -442,6 +468,20 @@ yield(void)
   myproc()->state = RUNNABLE;
   sched();
   release(&ptable.lock);
+}
+
+void 
+setPrior(int priority)
+{
+  struct proc *p = myproc();
+  p->priority = priority;
+}
+
+int
+getPrior(void)
+{
+  struct proc *p = myproc();
+  return p->priority;
 }
 
 // A fork child's very first scheduling by scheduler()
